@@ -1,23 +1,57 @@
-# Python Hello
+# Inventory Agent
 
-The most basic boilerplate to start a Python project at 4Geeks is to start your very first Python project from scratch.
+A FastAPI inventory API and a terminal-based conversational agent. Inventory data is stored in `products.csv`; the agent implements its own tool loop without an agent framework.
 
-## What to do next?
+## Install and configure
 
-Open the `main.py` file and start writing your code.
-
-Execute your code by typing the following command on your terminal:
+Requires Python 3.10 or newer. Install dependencies:
 
 ```bash
-$ python main.py
+python -m pip install -r requirements.txt
 ```
 
-You can create and include as many python files (a.k.a. modules) as you want using the import statements.
+Configure `.env` in the project root. If it does not exist yet, start from `.env.example`:
 
-## Requirements
+```dotenv
+LLM_API_KEY=your_4geeks_api_key
+LLM_BASE_URL=https://llm.4geeks.ai
+LLM_MODEL=litellm/online/openrouter/deepseek/deepseek-v4-flash
+INVENTORY_API_URL=http://127.0.0.1:8000
+```
 
-Make sure you have Python installed in your computer. We strongly recommend [installing Python through Pyenv ](https://4geeks.com/how-to/what-is-pyenv-and-how-to-install-pyenv) to avoid version conflicts in the future.
+Do not share or commit `.env`. The agent removes the `litellm/` prefix when sending the model name to the 4Geeks gateway.
 
-### Contributors
+## Run
 
-This template was built as part of the [4Geeks Python Resources](https://4geeks.com/technology/python) for learning at [4Geeks.com](https://4geeks.com) by [Alejandro Sanchez](https://twitter.com/alesanchezr) and [many other contributors](https://github.com/4GeeksAcademy/python-hello/graphs/contributors).
+Start the API from the project root:
+
+```bash
+uvicorn api.app:app --reload --host 127.0.0.1 --port 8000
+```
+
+In a second terminal, start the agent:
+
+```bash
+python agent.py
+```
+
+Enter requests in natural language and type `/salir` to exit. The API must be running before the agent. FastAPI's interactive documentation is available at `http://127.0.0.1:8000/docs`.
+
+## API endpoints
+
+- `GET /inventory`: list all products.
+- `POST /inventory`: create a product with `name`, `quantity`, and `unit`.
+- `PATCH /inventory/{product_id}`: adjust stock with a positive `delta` to add or a negative one to reduce. The API rejects adjustments that would make stock negative.
+- `GET /inventory/alerts?limit=10`: list products whose stock is strictly below the limit; the default is `10`.
+
+Create a product with:
+
+```bash
+curl -X POST http://127.0.0.1:8000/inventory \
+	-H 'Content-Type: application/json' \
+	-d '{"name":"Arabica coffee","quantity":12,"unit":"bags"}'
+```
+
+Products persist in `products.csv` across API restarts. Each agent session keeps its conversation history in memory and appends events to `conversation_log.csv` using the fields `actor`, `message`, `tool_call`, and `timestamp`.
+
+The system does not estimate how many weeks stock will last because it does not store sales history or demand forecasts. It can report current quantities and low-stock alerts.
